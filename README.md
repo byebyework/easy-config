@@ -1,4 +1,4 @@
-# easy-config
-Easy use config.
+# joy-config
+joy use config.
 Auto load project config.
 

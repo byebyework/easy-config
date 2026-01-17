@@ -1,5 +1,5 @@
 def main():
-    print("Hello from easy-config!")
+    print("Hello from joy-config!")
 
 
 if __name__ == "__main__":
