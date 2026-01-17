@@ -1,2 +1,4 @@
 # easy-config
-TBD
+Easy use config.
+Auto load project config.
+
