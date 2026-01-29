@@ -13,32 +13,40 @@ from .base_loader.config_loader import config_loader
 
 def auto_loader(config_path=None, env=None):
     """
-    根据文件扩展名和环境自动选择合适的加载器来加载配置文件
+    Automatically selects the appropriate loader to load configuration files based on file extension and environment.
     
-    参数:
-        config_path: 配置文件的路径，如果为None，则按优先级尝试加载常见配置文件
-        env: 环境名称（如'dev', 'test', 'prod'），如果为None则尝试从环境变量中获取
+    This function provides a flexible way to load configuration files by:
+    1. Auto-detecting common configuration files if no path is specified
+    2. Supporting environment-specific configurations (dev, test, prod)
+    3. Merging base and environment-specific configurations
+    4. Handling various file formats (YAML, JSON, INI/CFG, ENV)
+    
+    Args:
+        config_path (str, optional): Path to the configuration file. If None, common configuration files 
+                                     will be tried according to priority. Defaults to None.
+        env (str, optional): Environment name (e.g., 'dev', 'test', 'prod'). If None, will try to get 
+                             from environment variables. Defaults to None.
         
-    返回:
-        一个包含配置项作为属性的配置对象
+    Returns:
+        object: A configuration object with configuration items as attributes.
     """
-    # 确定项目根目录
+    # Determine the project root directory
     root_dir = _get_project_root()
-    logger.debug(f"项目根目录: {root_dir}")
+    logger.debug(f"Project root directory: {root_dir}")
     
-    # 确定当前环境
+    # Determine the current environment
     if env is None:
-        # 尝试从环境变量获取环境名称
+        # Try to get environment name from environment variables
         env = os.environ.get('ENV', os.environ.get('ENVIRONMENT', os.environ.get('PROFILE', 'dev')))
     
-    logger.info(f"当前环境: {env}")
+    logger.info(f"Current environment: {env}")
     
-    # 如果未指定配置文件路径，则按优先级尝试常见配置文件
+    # If no configuration file path is specified, try common configuration files by priority
     if config_path is None:
-        # 按优先级定义常见配置文件，包括环境特定的配置文件
+        # Define common configuration files by priority, including environment-specific configuration files
         common_config_files = []
         
-        # 环境特定的配置文件优先级更高
+        # Environment-specific configuration files have higher priority
         if env:
             common_config_files.extend([
                 os.path.join(root_dir, f"config-{env}.yaml"), os.path.join(root_dir, f"config-{env}.yml"),
@@ -50,7 +58,7 @@ def auto_loader(config_path=None, env=None):
                 os.path.join(root_dir, f".env.{env}")
             ])
             
-            # 也检查配置目录
+            # Also check the config directory
             config_dir = os.path.join(root_dir, "config")
             if os.path.exists(config_dir) and os.path.isdir(config_dir):
                 common_config_files.extend([
@@ -63,7 +71,7 @@ def auto_loader(config_path=None, env=None):
                     os.path.join(config_dir, f".env.{env}")
                 ])
         
-        # 然后是通用配置文件
+        # Then general configuration files
         common_config_files.extend([
             os.path.join(root_dir, ".env"),
             os.path.join(root_dir, "config.yaml"), os.path.join(root_dir, "config.yml"),
@@ -74,7 +82,7 @@ def auto_loader(config_path=None, env=None):
             os.path.join(root_dir, "application.properties"), os.path.join(root_dir, "application.ini")
         ])
         
-        # 检查配置目录中的通用配置文件
+        # Check for general configuration files in the config directory
         config_dir = os.path.join(root_dir, "config")
         if os.path.exists(config_dir) and os.path.isdir(config_dir):
             common_config_files.extend([
@@ -87,16 +95,16 @@ def auto_loader(config_path=None, env=None):
                 os.path.join(config_dir, "application.properties"), os.path.join(config_dir, "application.ini")
             ])
         
-        # 尝试查找存在的配置文件
+        # Try to find existing configuration files
         for file_path in common_config_files:
             if os.path.exists(file_path):
                 config_path = file_path
-                logger.info(f"自动检测到配置文件: {config_path}")
+                logger.info(f"Auto-detected configuration file: {config_path}")
                 break
         
         if config_path is None:
-            logger.warning("未找到任何配置文件，返回空配置")
-            # 返回一个空的配置对象
+            logger.warning("No configuration file found, returning empty configuration")
+            # Return an empty configuration object
             return type('EmptyConfig', (), {
                 'get': lambda self, key, default=None: default,
                 'as_dict': lambda self: {},
@@ -104,49 +112,58 @@ def auto_loader(config_path=None, env=None):
                 '__getitem__': lambda self, key: None
             })()
     else:
-        # 如果提供的配置路径是相对路径，则相对于项目根目录
+        # If the provided configuration path is a relative path, make it relative to the project root directory
         if not os.path.isabs(config_path):
             config_path = os.path.join(root_dir, config_path)
     
-    # 加载基础配置
+    # Load the base configuration
     base_config = _load_config_file(config_path)
     
-    # 如果存在环境特定的配置文件，加载并合并
     if env and config_path:
-        # 从基础配置文件路径推断环境特定的配置文件路径
+        # Infer the environment-specific configuration file path from the base configuration file path
         base_name, ext = os.path.splitext(config_path)
-        env_config_path = f"{base_name}-{env}{ext}"
         
-        # 如果环境特定的配置文件存在，加载并合并
+        # Special handling for .env file environment-specific naming convention
+        if ext.lower() == '.env':
+            env_config_path = f"{base_name}.{env}"
+        else:
+            env_config_path = f"{base_name}-{env}{ext}"
+        
+        # If the environment-specific configuration file exists, load and merge it
         if os.path.exists(env_config_path):
-            logger.info(f"加载环境特定配置文件: {env_config_path}")
+            logger.info(f"Loading environment-specific configuration file: {env_config_path}")
             env_config = _load_config_file(env_config_path)
             
-            # 合并配置
+            # Merge configurations
             base_config = _merge_configs(base_config, env_config)
-    
+            
     return base_config
 
 
 def _get_project_root():
     """
-    尝试确定项目的根目录
+    Attempts to determine the project's root directory.
     
-    返回:
-        项目根目录的路径
+    Uses multiple strategies to find the project root:
+    1. Use the current working directory
+    2. If running within a package, try to find the package's root directory
+    3. Look up the directory tree for project marker files (setup.py, pyproject.toml, .git)
+    
+    Returns:
+        str: The path to the project root directory
     """
-    # 方法1: 使用当前工作目录
+    # Method 1: Use the current working directory
     cwd = os.getcwd()
     
-    # 方法2: 如果是在包中运行，尝试查找包的根目录
+    # Method 2: If running within a package, try to find the package's root directory
     try:
-        # 获取调用栈中的主模块
+        # Get the main module from the call stack
         main_module = sys.modules['__main__']
         if hasattr(main_module, '__file__'):
-            # 主模块文件所在的目录可能是项目根目录
+            # The directory of the main module file might be the project root directory
             main_dir = os.path.dirname(os.path.abspath(main_module.__file__))
             
-            # 检查是否有一些典型的项目根目录标志
+            # Check for typical project root directory markers
             if (os.path.exists(os.path.join(main_dir, 'setup.py')) or
                 os.path.exists(os.path.join(main_dir, 'pyproject.toml')) or
                 os.path.exists(os.path.join(main_dir, '.git'))):
@@ -154,88 +171,95 @@ def _get_project_root():
     except (KeyError, AttributeError):
         pass
     
-    # 方法3: 向上查找项目标志文件
+    # Method 3: Look up the directory tree for project marker files
     path = Path(cwd)
     for p in [path] + list(path.parents):
         if (p / 'setup.py').exists() or (p / 'pyproject.toml').exists() or (p / '.git').exists():
             return str(p)
     
-    # 如果找不到明确的项目根目录，返回当前工作目录
+    # If no clear project root directory is found, return the current working directory
     return cwd
 
 
 def _load_config_file(config_path):
     """
-    根据文件扩展名加载配置文件
+    Loads a configuration file based on its file extension.
     
-    参数:
-        config_path: 配置文件的路径
+    Determines the appropriate loader based on the file name pattern or extension,
+    with special handling for .env files.
+    
+    Args:
+        config_path (str): The path to the configuration file
         
-    返回:
-        一个包含配置项的配置对象
+    Returns:
+        object: A configuration object containing the configuration items
     """
-    # 根据文件扩展名选择合适的加载器
-    _, ext = os.path.splitext(config_path.lower())
+    # Get the file name (without path)
+    file_name = os.path.basename(config_path.lower())
     
-    if ext == '.env':
-        logger.info(f"使用env_loader加载: {config_path}")
+    # Use pattern matching to determine the file type
+    if file_name == '.env' or file_name.startswith('.env.'):
+        logger.info(f"Using env_loader to load: {config_path}")
         return env_loader(config_path)
-    elif ext in ['.yaml', '.yml']:
-        logger.info(f"使用yaml_loader加载: {config_path}")
+    elif file_name.endswith('.yaml') or file_name.endswith('.yml'):
+        logger.info(f"Using yaml_loader to load: {config_path}")
         return yaml_loader(config_path)
-    elif ext == '.json':
-        logger.info(f"使用json_loader加载: {config_path}")
+    elif file_name.endswith('.json'):
+        logger.info(f"Using json_loader to load: {config_path}")
         return json_loader(config_path)
-    elif ext in ['.ini', '.cfg', '.properties']:
-        logger.info(f"使用config_loader加载: {config_path}")
+    elif file_name.endswith('.ini') or file_name.endswith('.cfg') or file_name.endswith('.properties'):
+        logger.info(f"Using config_loader to load: {config_path}")
         return config_loader(config_path)
     else:
-        # 如果无法识别扩展名，尝试根据内容推断文件类型
-        logger.info(f"无法识别的文件扩展名: {ext}，尝试根据内容推断文件类型")
+        # If the extension cannot be recognized, try to infer the file type from its content
+        logger.info(f"Unrecognized file type: {file_name}, trying to infer from content")
         return _load_by_content(config_path)
     
     
 def _merge_configs(base_config, env_config):
     """
-    合并两个配置对象
+    Merges two configuration objects.
     
-    参数:
-        base_config: 基础配置对象
-        env_config: 环境特定配置对象
+    Creates a new configuration object that combines the base configuration and 
+    environment-specific configuration, with the environment configuration taking precedence.
+    
+    Args:
+        base_config (object): The base configuration object
+        env_config (object): The environment-specific configuration object
         
-    返回:
-        合并后的配置对象
+    Returns:
+        object: The merged configuration object
     """
-    # 将环境配置转换为字典
+    # Convert the environment configuration to a dictionary
     env_dict = env_config.as_dict() if hasattr(env_config, 'as_dict') else {}
     
-    # 创建一个新的配置类
+    # Create a new configuration class
     class MergedConfig:
         def __init__(self, base, env_dict):
             self._base = base
             
-            # 将环境配置的属性复制到新对象
+            # Copy the attributes from the environment configuration to the new object
             for key, value in env_dict.items():
                 if isinstance(value, dict):
-                    # 如果是嵌套字典，递归合并
+                    # If it's a nested dictionary, recursively merge
                     base_value = getattr(base, key, None)
                     if base_value and hasattr(base_value, 'as_dict'):
-                        # 如果基础配置中有相同的嵌套对象，合并它们
+                        # If there's a matching nested object in the base configuration, merge them
                         merged_obj = _merge_nested_dict(base_value, value)
                         setattr(self, key, merged_obj)
                     else:
-                        # 否则创建新的嵌套对象
+                        # Otherwise create a new nested object
                         nested_obj = type('NestedConfig', (), {})()
                         for k, v in value.items():
                             setattr(nested_obj, k, v)
                         setattr(self, key, nested_obj)
                 else:
-                    # 直接覆盖基础配置
+                    # Directly override the base configuration
                     setattr(self, key, value)
         
         def get(self, key, default=None):
-            """获取配置项值，如果不存在则返回默认值"""
-            # 先尝试从环境配置获取
+            """Gets a configuration item value, or returns the default if it doesn't exist"""
+            # First try to get from the environment configuration
             try:
                 if '.' in key:
                     parts = key.split('.')
@@ -243,31 +267,31 @@ def _merge_configs(base_config, env_config):
                     for part in parts[:-1]:
                         obj = getattr(obj, part, None)
                         if obj is None:
-                            # 如果中间路径不存在，回退到基础配置
+                            # If the intermediate path doesn't exist, fall back to the base configuration
                             return self._base.get(key, default)
                     return getattr(obj, parts[-1], None) or self._base.get(key, default)
                 else:
                     return getattr(self, key, None) or self._base.get(key, default)
             except (AttributeError, KeyError):
-                # 如果环境配置中不存在，回退到基础配置
+                # If it doesn't exist in the environment configuration, fall back to the base configuration
                 return self._base.get(key, default)
         
         def as_dict(self):
-            """将所有配置项转换为字典返回"""
-            # 先获取基础配置的字典
+            """Converts all configuration items to a dictionary and returns it"""
+            # First get the base configuration's dictionary
             result = self._base.as_dict() if hasattr(self._base, 'as_dict') else {}
             
-            # 然后添加或覆盖环境配置的项
+            # Then add or override with the environment configuration's items
             for key, value in self.__dict__.items():
                 if not key.startswith('_'):
                     if isinstance(value, object) and not isinstance(value, (str, int, float, bool, list, dict)):
-                        # 如果是嵌套对象，递归转换
+                        # If it's a nested object, recursively convert
                         nested_dict = {}
                         for attr in dir(value):
                             if not attr.startswith('_') and not callable(getattr(value, attr)):
                                 attr_value = getattr(value, attr)
                                 if isinstance(attr_value, object) and not isinstance(attr_value, (str, int, float, bool, list, dict)):
-                                    # 递归处理更深层次的嵌套
+                                    # Recursively handle deeper nesting
                                     nested_obj = type('NestedConfig', (), {})()
                                     nested_obj.__dict__.update(attr_value.__dict__)
                                     nested_dict[attr] = nested_obj.as_dict() if hasattr(nested_obj, 'as_dict') else attr_value
@@ -290,7 +314,7 @@ def _merge_configs(base_config, env_config):
             return f"MergedConfig({', '.join(attrs)})"
         
         def __getitem__(self, key):
-            """支持字典式访问: config['key'] 或 config['nested.key']"""
+            """Supports dictionary-style access: config['key'] or config['nested.key']"""
             if '.' in key:
                 parts = key.split('.')
                 obj = self
@@ -298,7 +322,7 @@ def _merge_configs(base_config, env_config):
                     try:
                         obj = getattr(obj, part)
                     except AttributeError:
-                        # 如果在环境配置中找不到，尝试从基础配置获取
+                        # If not found in the environment configuration, try to get from the base configuration
                         try:
                             return self._base[key]
                         except (KeyError, AttributeError):
@@ -306,7 +330,7 @@ def _merge_configs(base_config, env_config):
                 try:
                     return getattr(obj, parts[-1])
                 except AttributeError:
-                    # 如果在环境配置中找不到，尝试从基础配置获取
+                    # If not found in the environment configuration, try to get from the base configuration
                     try:
                         return self._base[key]
                     except (KeyError, AttributeError):
@@ -315,7 +339,7 @@ def _merge_configs(base_config, env_config):
             try:
                 return getattr(self, key)
             except AttributeError:
-                # 如果在环境配置中找不到，尝试从基础配置获取
+                # If not found in the environment configuration, try to get from the base configuration
                 try:
                     return self._base[key]
                 except (KeyError, AttributeError):
@@ -326,45 +350,48 @@ def _merge_configs(base_config, env_config):
 
 def _merge_nested_dict(base_obj, env_dict):
     """
-    合并嵌套对象和字典
+    Merges a nested object and a dictionary.
     
-    参数:
-        base_obj: 基础嵌套对象
-        env_dict: 环境特定嵌套字典
+    Creates a new nested object that combines the base nested object and 
+    environment-specific nested dictionary, with the environment values taking precedence.
+    
+    Args:
+        base_obj (object): The base nested object
+        env_dict (dict): The environment-specific nested dictionary
         
-    返回:
-        合并后的嵌套对象
+    Returns:
+        object: The merged nested object
     """
-    # 创建一个新的嵌套对象
+    # Create a new nested object
     nested_obj = type('NestedConfig', (), {})()
     
-    # 复制基础对象的属性
+    # Copy the attributes from the base object
     if hasattr(base_obj, 'as_dict'):
         base_dict = base_obj.as_dict()
     else:
         base_dict = {k: v for k, v in base_obj.__dict__.items() if not k.startswith('_')}
     
-    # 先设置基础属性
+    # First set the base attributes
     for key, value in base_dict.items():
         setattr(nested_obj, key, value)
     
-    # 然后设置或覆盖环境特定属性
+    # Then set or override with environment-specific attributes
     for key, value in env_dict.items():
         if isinstance(value, dict):
-            # 如果是嵌套字典，递归合并
+            # If it's a nested dictionary, recursively merge
             base_value = getattr(nested_obj, key, None)
             if base_value and (hasattr(base_value, 'as_dict') or hasattr(base_value, '__dict__')):
-                # 如果基础对象中有相同的嵌套对象，递归合并
+                # If there's a matching nested object in the base object, recursively merge
                 merged = _merge_nested_dict(base_value, value)
                 setattr(nested_obj, key, merged)
             else:
-                # 否则创建新的嵌套对象
+                # Otherwise create a new nested object
                 sub_obj = type('NestedConfig', (), {})()
                 for k, v in value.items():
                     setattr(sub_obj, k, v)
                 setattr(nested_obj, key, sub_obj)
         else:
-            # 直接覆盖
+            # Directly override
             setattr(nested_obj, key, value)
     
     return nested_obj
@@ -372,58 +399,106 @@ def _merge_nested_dict(base_obj, env_dict):
 
 def _load_by_content(file_path):
     """
-    尝试根据文件内容推断文件类型并加载
+    Attempts to infer the file type from its content and load it.
     
-    参数:
-        file_path: 配置文件的路径
+    Examines the file content to determine if it's ENV, JSON, INI, or YAML format,
+    then uses the appropriate loader.
+    
+    Args:
+        file_path (str): The path to the configuration file
         
-    返回:
-        一个包含配置项作为属性的配置对象
+    Returns:
+        object: A configuration object with configuration items as attributes
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read().strip()
             
-            # 检查是否是JSON格式
+            # First split the content into lines, and filter out empty lines and comment lines
+            lines = [line.strip() for line in content.split('\n') 
+                    if line.strip() and not line.strip().startswith('#')]
+            
+            if not lines:
+                logger.warning(f"File content is empty or contains only comments: {file_path}")
+                return type('EmptyConfig', (), {
+                    'get': lambda self, key, default=None: default,
+                    'as_dict': lambda self: {},
+                    '__repr__': lambda self: "EmptyConfig()",
+                    '__getitem__': lambda self, key: None
+                })()
+            
+            # 1. Check if it's ENV format
+            # ENV file characteristics: Most lines are in KEY=VALUE format, no obvious indentation structure
+            env_line_pattern = r'^[A-Za-z_][A-Za-z0-9_]*='
+            env_line_count = sum(1 for line in lines if '=' in line and not line.startswith('['))
+            
+            # If most non-empty lines are in KEY=VALUE format, it's likely an ENV file
+            if env_line_count > 0 and env_line_count / len(lines) >= 0.5:
+                logger.info(f"Determined to be ENV format based on content: {file_path}")
+                return env_loader(file_path)
+            
+            # 2. Check if it's JSON format
+            # JSON file characteristics: Starts with {, ends with }, and is a valid JSON structure
             if content.startswith('{') and content.endswith('}'):
                 try:
                     json.loads(content)
-                    logger.info(f"根据内容判断为JSON格式: {file_path}")
+                    logger.info(f"Determined to be JSON format based on content: {file_path}")
                     return json_loader(file_path)
                 except json.JSONDecodeError:
                     pass
             
-            # 检查是否是YAML格式
-            if ':' in content and not content.startswith('#'):
-                try:
-                    yaml.safe_load(content)
-                    logger.info(f"根据内容判断为YAML格式: {file_path}")
-                    return yaml_loader(file_path)
-                except yaml.YAMLError:
-                    pass
-            
-            # 检查是否是INI格式
-            if '[' in content and ']' in content:
+            # 3. Check if it's INI format
+            # INI file characteristics: Contains lines in [section] format, and can be parsed by ConfigParser
+            if any(line.startswith('[') and line.endswith(']') for line in lines):
                 try:
                     config = configparser.ConfigParser()
                     config.read_string(content)
                     if len(config.sections()) > 0:
-                        logger.info(f"根据内容判断为INI格式: {file_path}")
+                        logger.info(f"Determined to be INI format based on content: {file_path}")
                         return config_loader(file_path)
                 except configparser.Error:
                     pass
             
-            # 检查是否是ENV格式
-            if '=' in content:
-                logger.info(f"根据内容判断为ENV格式: {file_path}")
+            # 4. Check if it's YAML format
+            # YAML file characteristics: Contains indentation structure, key-value pairs use colons (with a space after)
+            yaml_indicators = [
+                line for line in lines 
+                if ': ' in line and not (line.startswith('{') or line.startswith('['))
+            ]
+            
+            # Check if there's an indentation structure (typical YAML characteristic)
+            has_indentation = any(line.startswith(' ') or line.startswith('\t') for line in lines)
+            
+            if (yaml_indicators or has_indentation) and not any(line.startswith('[') and line.endswith(']') for line in lines):
+                try:
+                    yaml_data = yaml.safe_load(content)
+                    if yaml_data is not None:  # Ensure successful parsing
+                        logger.info(f"Determined to be YAML format based on content: {file_path}")
+                        return yaml_loader(file_path)
+                except yaml.YAMLError:
+                    pass
+            
+            # 5. If none of the above match, but the file contains equals signs, try loading as ENV file
+            if any('=' in line for line in lines):
+                logger.info(f"File type not clearly identified, but contains equals signs, trying as ENV format: {file_path}")
                 return env_loader(file_path)
             
-            # 如果无法识别，默认使用env_loader
-            logger.warning(f"无法识别文件类型，默认使用env_loader: {file_path}")
+            # 6. Last fallback: Try loading as YAML
+            try:
+                yaml_data = yaml.safe_load(content)
+                if yaml_data is not None:
+                    logger.info(f"File type not clearly identified, trying as YAML format: {file_path}")
+                    return yaml_loader(file_path)
+            except yaml.YAMLError:
+                pass
+            
+            # If all attempts fail, default to using env_loader
+            logger.warning(f"Could not identify file type, defaulting to env_loader: {file_path}")
             return env_loader(file_path)
+            
     except Exception as e:
-        logger.error(f"尝试加载配置文件时出错: {e}")
-        # 返回一个空的配置对象
+        logger.error(f"Error trying to load configuration file: {e}")
+        # Return an empty configuration object
         return type('EmptyConfig', (), {
             'get': lambda self, key, default=None: default,
             'as_dict': lambda self: {},
