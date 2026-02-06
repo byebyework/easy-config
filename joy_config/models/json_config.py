@@ -9,11 +9,11 @@ from .base_config import BaseConfig
 
 class JsonConfig(BaseConfig):
     """
-    JSON 文件配置类，加载并访问JSON格式的配置文件
+    JSON file configuration class
     """
     
     def _load_config(self) -> None:
-        """加载JSON配置文件"""
+        """load JSON config file"""
         try:
             if not os.path.exists(self._config_path):
                 logger.error(f"can't find the JSON file '{self._config_path}'")
@@ -22,7 +22,7 @@ class JsonConfig(BaseConfig):
             with open(self._config_path, 'r', encoding='utf-8') as f:
                 config_data = json.load(f)
             
-            # 将JSON数据转换为对象属性
+            # parse and set attributes
             self._set_attributes(config_data)
         except json.JSONDecodeError as e:
             logger.error(f"invalid JSON format in '{self._config_path}': {e}")
@@ -30,14 +30,14 @@ class JsonConfig(BaseConfig):
             logger.error(f"can't load the JSON file: {e}")
     
     def _set_attributes(self, data: Dict[str, Any], parent: Optional[Any] = None) -> None:
-        """递归设置属性"""
+        """set attributes from dictionary data, supporting nested dictionaries"""
         if parent is None:
             parent = self
             
         if isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, dict):
-                    # 为嵌套字典创建新对象
+                    # create a nested object for nested dictionary
                     nested_obj = type('NestedConfig', (), {})()
                     setattr(parent, key, nested_obj)
                     self._set_attributes(value, nested_obj)
@@ -45,8 +45,8 @@ class JsonConfig(BaseConfig):
                     setattr(parent, key, value)
     
     def get(self, key: str, default: Any = None) -> Any:
-        """获取配置项值，如果不存在则返回默认值"""
-        # 如果包含点，表示访问嵌套属性
+        """get the value of a configuration item by key"""
+        # if key contains '.', support nested access
         if '.' in key:
             parts = key.split('.')
             obj = self
@@ -58,18 +58,18 @@ class JsonConfig(BaseConfig):
         return getattr(self, key, default)
     
     def as_dict(self) -> Dict[str, Any]:
-        """将所有配置项转换为字典返回"""
+        """convert the entire configuration to a dictionary"""
         result = {}
         for key, value in self.__dict__.items():
             if not key.startswith('_'):
                 if isinstance(value, object) and not isinstance(value, (str, int, float, bool, list, dict)):
-                    # 如果是嵌套对象，递归转换
+                    # if it's a nested object, convert it recursively
                     nested_dict = {}
                     for attr in dir(value):
                         if not attr.startswith('_') and not callable(getattr(value, attr)):
                             attr_value = getattr(value, attr)
                             if isinstance(attr_value, object) and not isinstance(attr_value, (str, int, float, bool, list, dict)):
-                                # 递归处理更深层次的嵌套
+                                # handle deeper nested objects
                                 nested_obj = type('NestedConfig', (), {})()
                                 nested_obj.__dict__.update(attr_value.__dict__)
                                 nested_dict[attr] = nested_obj.as_dict() if hasattr(nested_obj, 'as_dict') else attr_value
@@ -81,7 +81,7 @@ class JsonConfig(BaseConfig):
         return result
     
     def __getitem__(self, key: str) -> Any:
-        """支持字典式访问: config['key'] 或 config['nested.key']"""
+        """support indexing syntax to access configuration items"""
         if '.' in key:
             parts = key.split('.')
             obj = self
@@ -100,7 +100,7 @@ class JsonConfig(BaseConfig):
             raise KeyError(key)
     
     def __repr__(self) -> str:
-        """返回配置对象的字符串表示"""
+        """return a string representation of the configuration object"""
         attrs = []
         for key, value in self.__dict__.items():
             if not key.startswith('_'):
