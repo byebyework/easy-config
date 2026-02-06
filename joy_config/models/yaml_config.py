@@ -8,11 +8,11 @@ from .base_config import BaseConfig
 
 class YamlConfig(BaseConfig):
     """
-    YAML 文件配置类，加载并访问YAML格式的配置文件
+    YAML configuration loader class.
     """
     
     def _load_config(self) -> None:
-        """加载YAML配置文件"""
+        """load configuration from a YAML file"""
         try:
             if not os.path.exists(self._config_path):
                 logger.error(f"can't find the YAML file '{self._config_path}'")
@@ -21,7 +21,7 @@ class YamlConfig(BaseConfig):
             with open(self._config_path, 'r', encoding='utf-8') as f:
                 config_data = yaml.safe_load(f)
             
-            # 将YAML数据转换为对象属性
+            # parse and set attributes
             self._set_attributes(config_data)
         except yaml.YAMLError as e:
             logger.error(f"invalid YAML format in '{self._config_path}': {e}")
@@ -29,14 +29,14 @@ class YamlConfig(BaseConfig):
             logger.error(f"can't load the YAML file: {e}")
     
     def _set_attributes(self, data: Dict[str, Any], parent: Optional[Any] = None) -> None:
-        """递归设置属性"""
+        """set attributes from the configuration data"""
         if parent is None:
             parent = self
             
         if isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, dict):
-                    # 为嵌套字典创建新对象
+                    # create a nested object for nested dictionaries
                     nested_obj = type('NestedConfig', (), {})()
                     setattr(parent, key, nested_obj)
                     self._set_attributes(value, nested_obj)
@@ -44,8 +44,8 @@ class YamlConfig(BaseConfig):
                     setattr(parent, key, value)
     
     def get(self, key: str, default: Any = None) -> Any:
-        """获取配置项值，如果不存在则返回默认值"""
-        # 如果包含点，表示访问嵌套属性
+        """get configuration value by key, with support for nested keys using dot notation"""
+        # if key contains dots, navigate through nested objects
         if '.' in key:
             parts = key.split('.')
             obj = self
@@ -57,18 +57,18 @@ class YamlConfig(BaseConfig):
         return getattr(self, key, default)
     
     def as_dict(self) -> Dict[str, Any]:
-        """将所有配置项转换为字典返回"""
+        """parse the configuration object to a dictionary"""
         result = {}
         for key, value in self.__dict__.items():
             if not key.startswith('_'):
                 if isinstance(value, object) and not isinstance(value, (str, int, float, bool, list, dict)):
-                    # 如果是嵌套对象，递归转换
+                    # if the value is a nested config object, convert it to dict recursively
                     nested_dict = {}
                     for attr in dir(value):
                         if not attr.startswith('_') and not callable(getattr(value, attr)):
                             attr_value = getattr(value, attr)
                             if isinstance(attr_value, object) and not isinstance(attr_value, (str, int, float, bool, list, dict)):
-                                # 递归处理更深层次的嵌套
+                                # nest another level
                                 nested_obj = type('NestedConfig', (), {})()
                                 nested_obj.__dict__.update(attr_value.__dict__)
                                 nested_dict[attr] = nested_obj.as_dict() if hasattr(nested_obj, 'as_dict') else attr_value
@@ -80,7 +80,7 @@ class YamlConfig(BaseConfig):
         return result
     
     def __getitem__(self, key: str) -> Any:
-        """支持字典式访问: config['key'] 或 config['nested.key']"""
+        """support dictionary-like access to configuration values"""
         if '.' in key:
             parts = key.split('.')
             obj = self
@@ -99,7 +99,7 @@ class YamlConfig(BaseConfig):
             raise KeyError(key)
     
     def __repr__(self) -> str:
-        """返回配置对象的字符串表示"""
+        """return a string representation of the configuration object"""
         attrs = []
         for key, value in self.__dict__.items():
             if not key.startswith('_'):
