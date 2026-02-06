@@ -1,3 +1,5 @@
+import ast
+
 from loguru import logger
 from typing import Any, Dict
 from .base_config import BaseConfig
@@ -30,6 +32,15 @@ class DotenvConfig(BaseConfig):
                         if (value.startswith('"') and value.endswith('"')) or \
                            (value.startswith("'") and value.endswith("'")):
                             value = value[1:-1]
+                        
+                        # parse array data if it looks like a list
+                        if value.startswith('[') and value.endswith(']'):
+                            try:
+                                # use ast.literal_eval for safe parsing of Python literals
+                                value = ast.literal_eval(value)
+                            except (SyntaxError, ValueError):
+                                # if parsing fails, keep it as string
+                                pass
                             
                         setattr(self, key, value)
         except FileNotFoundError:
