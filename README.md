@@ -96,13 +96,14 @@ log_level = info
 
 ### Environment Variables (.env) 📝
 
+```env
 DATABASE_HOST=localhost 
 DATABASE_PORT=5432 
 DATABASE_USERNAME=admin 
 DATABASE_PASSWORD=secret 
 APP_DEBUG=false 
 APP_LOG_LEVEL=info
-
+```
 
 ## 🌐 Environment-Specific Configuration
 
