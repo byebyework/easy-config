@@ -1,5 +1,5 @@
 from loguru import logger
-from models.dotenv_config import DotenvConfig
+from ..models.dotenv_config import DotenvConfig
 
 def dotenv_loader(env_path=".env") -> DotenvConfig:
     """

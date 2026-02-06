@@ -3,7 +3,7 @@ import configparser
 
 from loguru import logger
 
-from models.ini_config import IniConfig
+from ..models.ini_config import IniConfig
 
 def config_loader(config_path="config.ini", section=None):
     """

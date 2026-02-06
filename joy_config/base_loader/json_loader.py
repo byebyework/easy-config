@@ -2,7 +2,7 @@ import os
 import json
 
 from loguru import logger
-from models.json_config import JsonConfig
+from ..models.json_config import JsonConfig
 
 def json_loader(json_path="config.json"):
     """

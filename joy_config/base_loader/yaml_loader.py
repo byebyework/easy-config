@@ -2,7 +2,7 @@ import os
 import yaml
 
 from loguru import logger 
-from models.yaml_config import YamlConfig
+from ..models.yaml_config import YamlConfig
 
 def yaml_loader(yaml_path="config.yaml"):
     """
