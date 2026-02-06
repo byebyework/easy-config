@@ -6,14 +6,14 @@ from loguru import logger
 
 def config_loader(config_path="config.ini", section=None):
     """
-    加载配置文件中的配置项，并将这些配置项作为返回对象的属性
+    Load configuration from an INI file and return a ConfigObject with attributes.
     
-    参数:
-        config_path: 配置文件的路径，默认为当前目录下的config.ini文件
-        section: 要加载的配置节，如果为None则加载所有节
+    parameters:
+        config_path: config file path
+        section: the specific section to load (optional)
         
-    返回:
-        一个包含配置项作为属性的ConfigObject对象
+    returns:
+        ConfigObject: An object containing configuration attributes.
     """
     class ConfigObject:
         """
