@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from .base_config import BaseConfig
+from .nested_config import NestedConfig
 
 class YamlConfig(BaseConfig):
     """
@@ -37,12 +38,12 @@ class YamlConfig(BaseConfig):
             for key, value in data.items():
                 if isinstance(value, dict):
                     # create a nested object for nested dictionaries
-                    nested_obj = type('NestedConfig', (), {})()
+                    nested_obj = NestedConfig()  # 使用 NestedConfig 类
                     setattr(parent, key, nested_obj)
                     self._set_attributes(value, nested_obj)
                 else:
                     setattr(parent, key, value)
-    
+                    
     def get(self, key: str, default: Any = None) -> Any:
         """get configuration value by key, with support for nested keys using dot notation"""
         # if key contains dots, navigate through nested objects
@@ -97,6 +98,20 @@ class YamlConfig(BaseConfig):
             return getattr(self, key)
         except AttributeError:
             raise KeyError(key)
+    
+    def __contains__(self, key: str) -> bool:
+        """support 'in' operator to check if a key exists in the configuration"""
+        if '.' in key:
+            parts = key.split('.')
+            obj = self
+            for part in parts[:-1]:
+                try:
+                    obj = getattr(obj, part)
+                except AttributeError:
+                    return False
+            return hasattr(obj, parts[-1])
+        return hasattr(self, key)
+    
     
     def __repr__(self) -> str:
         """return a string representation of the configuration object"""
