@@ -47,37 +47,3 @@ class DotenvConfig(BaseConfig):
             logger.error(f"can't find the env file '{self._config_path}'")
         except Exception as e:
             logger.error(f"can't load the env file: {e}")
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """
-        get the value of a configuration item by key"""
-        return getattr(self, key, default)
-    
-    def as_dict(self) -> Dict[str, Any]:
-        """
-        parse the entire configuration as a dictionary
-        """
-        return {k: v for k, v in self.__dict__.items() 
-                if not k.startswith('_')}
-    
-    def __getitem__(self, key: str) -> Any:
-        """
-        access configuration items using indexing syntax
-        """
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            raise KeyError(key)
-    
-    def __contains__(self, key: str) -> bool:
-        """
-        support 'in' operator to check if a key exists in the configuration"""
-        return hasattr(self, key)
-    
-    def __repr__(self) -> str:
-        """
-        return a string representation of the configuration object
-        """
-        attrs = ', '.join(f"{key}={repr(value)}" for key, value in self.__dict__.items() 
-                         if not key.startswith('_'))
-        return f"DotenvConfig({attrs})"

@@ -82,59 +82,6 @@ class IniConfig(BaseConfig):
             # set section object as attribute
             setattr(self, section, section_obj)
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """set config item value, return default if not exist"""
-        # if contains dot, means accessing nested attribute
-        if '.' in key:
-            section, option = key.split('.', 1)
-            section_obj = getattr(self, section, None)
-            if section_obj:
-                return getattr(section_obj, option, default)
-            return default
-        return getattr(self, key, default)
-
-    def as_dict(self) -> Dict[str, Any]:
-        """parse all config items to dict and return"""
-        result = {}
-        for key, value in self.__dict__.items():
-            if not key.startswith('_'):
-                if isinstance(value, object) and not isinstance(value, (str, int, float, bool, list, dict)):
-                    # if is a nested object, parse recursively
-                    section_dict = {}
-                    for attr in dir(value):
-                        if not attr.startswith('_') and not callable(getattr(value, attr)):
-                            section_dict[attr] = getattr(value, attr)
-                    result[key] = section_dict
-                else:
-                    result[key] = value
-        return result
-
-    def __getitem__(self, key: str) -> Any:
-        """support dict-style access: config['key'] or config['section.key']"""
-        if '.' in key:
-            section, option = key.split('.', 1)
-            section_obj = getattr(self, section, None)
-            if section_obj:
-                try:
-                    return getattr(section_obj, option)
-                except AttributeError:
-                    raise KeyError(option)
-            raise KeyError(section)
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            raise KeyError(key)
-
-    def __contains__(self, key: str) -> bool:
-        """support 'in' operator to check if a key exists in the configuration"""
-        if '.' in key:
-            section, option = key.split('.', 1)
-            section_obj = getattr(self, section, None)
-            if section_obj:
-                return hasattr(section_obj, option)
-            return False
-        return hasattr(self, key)
-
     def __repr__(self) -> str:
         """return string representation of the config object"""
         if self._section:
