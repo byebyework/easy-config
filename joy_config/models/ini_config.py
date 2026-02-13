@@ -1,6 +1,6 @@
 import os
 import configparser
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -34,6 +34,9 @@ class IniConfig(BaseConfig):
 
             self._config.read(self._config_path, encoding='utf-8')
 
+            # 首先加载 DEFAULT 部分
+            self._load_default_section()
+
             # if specified section, only load that section
             if self._section:
                 if self._section in self._config:
@@ -48,10 +51,46 @@ class IniConfig(BaseConfig):
         except Exception as e:
             logger.error(f"can't load the config file: {e}")
 
+    def _load_default_section(self) -> None:
+        """Load the DEFAULT section of the INI file"""
+        if self._config.defaults():
+            # 创建一个对象来存储默认部分的值
+            default_obj = self.__class__.__new__(self.__class__)
+            default_obj._config_path = None
+            default_obj._section = None
+            default_obj._config = configparser.ConfigParser()
+
+            for key, value in self._config.defaults().items():
+                # 尝试转换值的类型
+                try:
+                    # 尝试转换为整数
+                    value = int(value)
+                except ValueError:
+                    try:
+                        # 尝试转换为浮点数
+                        value = float(value)
+                    except ValueError:
+                        # 尝试转换为布尔值
+                        if value.lower() in ('true', 'yes', '1'):
+                            value = True
+                        elif value.lower() in ('false', 'no', '0'):
+                            value = False
+
+                # 设置属性到默认对象
+                setattr(default_obj, key, value)
+
+            # 将默认对象设置为 DEFAULT 属性
+            setattr(self, "DEFAULT", default_obj)
+
     def _load_section(self, section: str) -> None:
         """load specified section's config items"""
-        # create an attribute for each section
-        section_obj = type('SectionConfig', (), {})()
+        # 使用自身类型创建嵌套对象
+        # 创建一个不需要加载文件的IniConfig实例
+        section_obj = self.__class__.__new__(self.__class__)
+        # 手动设置必要的属性
+        section_obj._config_path = None
+        section_obj._section = None
+        section_obj._config = configparser.ConfigParser()
 
         for key, value in self._config[section].items():
             # parse the type of the value
@@ -81,6 +120,19 @@ class IniConfig(BaseConfig):
         else:
             # set section object as attribute
             setattr(self, section, section_obj)
+
+    def sections(self) -> List[str]:
+        """
+        Return a list of section names in the INI file, excluding DEFAULT section
+        
+        returns:
+            List of section names
+        """
+        if hasattr(self, '_config') and self._config:
+            return self._config.sections()
+        else:
+            # 如果是嵌套对象或者没有加载文件，返回空列表
+            return []
 
     def __repr__(self) -> str:
         """return string representation of the config object"""

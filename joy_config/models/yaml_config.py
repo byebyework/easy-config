@@ -5,7 +5,6 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from .base_config import BaseConfig
-from .nested_config import NestedConfig
 
 class YamlConfig(BaseConfig):
     """
@@ -37,8 +36,11 @@ class YamlConfig(BaseConfig):
         if isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, dict):
-                    # create a nested object for nested dictionaries
-                    nested_obj = NestedConfig()  # 使用 NestedConfig 类
+                    # 使用自身类型创建嵌套对象
+                    # 创建一个不需要加载文件的YamlConfig实例
+                    nested_obj = self.__class__.__new__(self.__class__)
+                    # 手动设置_config_path属性，避免访问错误
+                    nested_obj._config_path = None
                     setattr(parent, key, nested_obj)
                     self._set_attributes(value, nested_obj)
                 else:

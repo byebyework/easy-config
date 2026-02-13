@@ -37,8 +37,11 @@ class JsonConfig(BaseConfig):
         if isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, dict):
-                    # create a nested object for nested dictionary
-                    nested_obj = type('NestedConfig', (), {})()
+                    # 使用自身类型创建嵌套对象
+                    # 创建一个不需要加载文件的JsonConfig实例
+                    nested_obj = self.__class__.__new__(self.__class__)
+                    # 手动设置_config_path属性，避免访问错误
+                    nested_obj._config_path = None
                     setattr(parent, key, nested_obj)
                     self._set_attributes(value, nested_obj)
                 else:

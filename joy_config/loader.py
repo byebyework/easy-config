@@ -1,5 +1,6 @@
 import os
 from loguru import logger
+import pathlib
 
 from .base_loader.json_loader import json_loader
 from .base_loader.yaml_loader import yaml_loader
@@ -18,6 +19,10 @@ def _get_loader_by_extension(file_path):
     returns:
         loader function that can load the specified file type
     """
+    # 特殊处理 .env 文件
+    if os.path.basename(file_path).startswith('.env'):
+        return dotenv_loader
+    
     _, ext = os.path.splitext(file_path.lower())
 
     if ext == '.json':
@@ -26,8 +31,6 @@ def _get_loader_by_extension(file_path):
         return yaml_loader
     elif ext == '.ini':
         return config_loader
-    elif ext == '.env':
-        return dotenv_loader
     else:
         raise ValueError(f"unsupported config file extension: {ext}")
 
@@ -80,8 +83,12 @@ def auto_loader(config_path: str = None):
         if env:
             logger.info(f"found environment: {env}")
 
-            base_name, ext = os.path.splitext(config_path)
-            env_config_path = f"{base_name}.{env}{ext}"
+            # 特殊处理 .env 文件
+            if os.path.basename(config_path).startswith('.env'):
+                env_config_path = f".env.{env}"
+            else:
+                base_name, ext = os.path.splitext(config_path)
+                env_config_path = f"{base_name}.{env}{ext}"
 
             if os.path.exists(env_config_path):
                 logger.info(f"load config file: {env_config_path}")
